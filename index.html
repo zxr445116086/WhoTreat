@@ -117,10 +117,12 @@
             window.location = location.protocol + '//' + location.host + location.pathname + '?' + resp.txhash;
         }
 
+        /*
         if(typeof(webExtensionWallet) === "undefined"){
             alert ("Extension wallet is not installed, redirecting you to more information.");
             window.location =  location.protocol + '//' + location.host + location.pathname + 'about.html';
         }
+        */
 
         $("#rng_request").hide();
 
