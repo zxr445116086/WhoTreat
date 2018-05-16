@@ -3,7 +3,8 @@
 <head>
     <meta charset=utf-8>
     <title>今天谁请客？</title>
-    <link rel=stylesheet href=css/ui-block.css>
+    <script src=nebulas.js></script>
+    <script src="nebPay.js"></script>
 </head>
 <body>
     <img src="whotreat.jpg" alt="treat pic"/ width="15%" height="15%" class=whopic>
@@ -22,19 +23,13 @@
         <br><br><hr><br><br><br>
     </div>
 
-    <!-- This pulls in the 'Select Wallet File' (incl Password) from Neb's library -->
-    <div class=select-wallet-file></div>
 
-    <br><br>
-
-    <!-- The Dapp form -->
     <p class=test>总人数（输入数字）:</p>  <input type=number id=new_request_max></input>
     <p class=test>他们的名字是（用空格分开）:</p> <textarea id=new_request_data></textarea>
-    <button id=request_number disabled onclick="javascript:onClickRequestNumber()">今天谁请客呢？</button>
+    <button id=request_number onclick="javascript:onClickRequestNumber()">今天谁请客呢？</button>
 
     <br><br>
 
-    <!-- About the app -->
     <div id=about style="border-style:solid">
         今天谁请客？<br>
         powered by Nebulas.<br><br>
@@ -47,22 +42,13 @@
         </ul>
 
 
-    <!-- All of these scripts are dependancies from the Nebulas Web Wallet -->
     <script src=lib/jquery-3.3.1.min.js></script>
-    <script src=lib/nebulas.js></script>
-    <script src=js/1-localSave.js></script>
-    <script src=js/i18n.js data-depends=jquery.slim></script>
-    <script src=js/ui-block.js data-depends="bootbox blockies jquery.slim i18n.js nebulas.js"></script>
 
-    <!-- Front end logic for our Dapp -->
     <script>
         "use strict";
 
-        // Global variables used by our Dapp
         var contract_address = "n1ot7S24E6eePBdrsQPMeWdf5WSCiGgWGpP";
-        var user_account = null;
 
-        // Gas hard coded for simplicity, ideally your app would allow for changing the gas price, etc.
         var is_mainnet = true;
         var nebulas_chain_id, nebulas_domain;
         var gas_price = 1000000;
@@ -75,24 +61,23 @@
             nebulas_chain_id = 1001;
             nebulas_domain = "https://testnet.nebulas.io";
         }
+        var NebPay = require("nebpay");
+        var nebPay = new NebPay();
 
-        // The nebulas API, used for signing transactions, etc
+        if(typeof(webExtensionWallet) === "undefined"){
+            alert ("Extension wallet is not installed, please install it first.")
+        }
+
         var nebulas = require("nebulas");
         var neb = new nebulas.Neb();
         neb.setRequest(new nebulas.HttpRequest(nebulas_domain));
 
-        // Adds the wallet selection workflow, from the Nebulas wallet
-        uiBlock.insert({
-            selectWalletFile: [".select-wallet-file", onUnlockFile]
-        });
-
-        // Called by the Refresh button
         function onClickRefresh() {
             neb.api.call({
-                from: contract_address, // Using the contract here so this can be called without loggin on.
+                from: contract_address,
                 to: contract_address,
                 value: 0,
-                nonce: 0, // Nonce is irrelavant when read-only (there is no transaction charge)
+                nonce: 0,
                 gasPrice: gas_price,
                 gasLimit: gas_limit,
                 contract: {function: "getNumber", args: JSON.stringify([window.location.search.substr(1)])}
@@ -101,48 +86,38 @@
                 if(response) {
                     $("#rng_request").show();
                     $("#rng_request_pending").hide();
-                    $(".test").hide();
-                    $(".whopic").hide();
-                    $(".pic").show();
-                    $("#rng_request_number").text(response.number+1);
-                    $("#rng_request_max").text(response.max);
-                    $("#rng_request_data").text(response.data);
+
+                    $("#rng_request_number").text(response.number);
                     $("#rng_request_date").text(new Date(response.date));
+                    $("#rng_request_max").text(response.max);
+                    var span = $("<span></span>").text(response.data);
+                    $("#rng_request_data").empty();
+                    $("#rng_request_data").append(span);
+                } else {
+                    setTimeout(onClickRefresh, 3000);
                 }
             });
         }
 
-        // Called by the post button
         function onClickRequestNumber() {
-            // Every transaction has a sequential ID, called 'Nonce'.  Required to sign a message (but not for reading information)
-            neb.api.getAccountState(user_account.getAddressString())
-            .then(function (resp) {
-                var nonce = parseInt(resp.nonce) + 1;
-                var gTx = new nebulas.Transaction(
-                    nebulas_chain_id,
-                    user_account,
-                    contract_address,
-                    0,
-                    nonce,
-                    gas_price,
-                    gas_limit,
-                    {function: "requestNumber", args: JSON.stringify([$("#new_request_max").val(), $("#new_request_data").val()])});
+            var max = parseInt($("#new_request_max").val());
+            var data = $("#new_request_data").val();
 
-                gTx.signTransaction();
-                neb.api.sendRawTransaction(gTx.toProtoString())
-                .then(function (response) {
-                    window.location = location.protocol + '//' + location.host + location.pathname + '?' + response.txhash;
-                });
+            nebPay.call(contract_address, 0, "requestNumber", JSON.stringify([max, data]), {
+                listener: onRequestNumber
             });
         }
 
-        // Called by the Nebulas library when the user selects their wallet file and enters the password.
-        function onUnlockFile(swf, fileJson, account, password) {
-            account.fromKey(fileJson, password); // Load account information
-            user_account = account; // Save it in a global variable
+        function onRequestNumber(resp) {
+             if(typeof(resp)==='string' && resp.startsWith("Error")) {
+                throw new Error(resp);
+            }
+            window.location = location.protocol + '//' + location.host + location.pathname + '?' + resp.txhash;
+        }
 
-            // Enables buttons so the user may now use the Dapp
-            $("#request_number").attr("disabled", false);
+        if(typeof(webExtensionWallet) === "undefined"){
+            alert ("Extension wallet is not installed, redirecting you to more information.");
+            window.location =  location.protocol + '//' + location.host + location.pathname + 'about.html';
         }
 
         $("#rng_request").hide();
