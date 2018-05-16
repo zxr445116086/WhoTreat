@@ -13,7 +13,7 @@
     <div id=rng_request>
         <div>今天请客的人是:<span id=rng_request_number></span>号</div>
         <div>总人数: <span id=rng_request_max></span></div>
-        <div>他们的分别是：<span id=rng_request_data></span>（从左向右，编号从1号开始）</div>
+        <div>他们的分别是：<span id=rng_request_data></span>（编号从1号开始,从左到右）</div>
         <div>抽签时间：<span id=rng_request_date></span></div>
         <img src="treat.jpg" alt="treat pic"/ width="40%" height="40%" class=pic>
         <br><br><hr><br><br><br>
@@ -24,8 +24,8 @@
     </div>
 
 
-    <p class=test>总人数（输入数字）:</p>  <input type=number id=new_request_max></input>
-    <p class=test>他们的名字是（用空格分开）:</p> <textarea id=new_request_data></textarea>
+    <p class=test>请输入总人数（数字）:</p>  <input type=number id=new_request_max></input>
+    <p class=test>请输入他们的名字（以空格分开）:</p> <textarea id=new_request_data></textarea>
     <button id=request_number onclick="javascript:onClickRequestNumber()">今天谁请客呢？</button>
 
     <br><br>
@@ -90,7 +90,7 @@
                 if(response) {
                     $("#rng_request").show();
                     $("#rng_request_pending").hide();
-
+                    $(".whopic").hide();
                     $("#rng_request_number").text(response.number);
                     $("#rng_request_date").text(new Date(response.date));
                     $("#rng_request_max").text(response.max);
